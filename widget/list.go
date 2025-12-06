@@ -33,6 +33,12 @@ type ListConfig struct {
 	// ExtraSelectionKeys allows defining additional keyboard keys that should
 	// be treated as list item selection keys, in addition to fyne.KeySpace.
 	ExtraSelectionKeys []fyne.KeyName
+
+	// SelectOnScroll, if true, will automatically select the currently
+	// focused item when the list is scrolled using keyboard navigation (Up/Down).
+	//
+	// Since: 2.8.1
+	SelectOnScroll bool
 }
 
 // List is a widget that pools list items for performance and
@@ -332,6 +338,8 @@ func (l *List) TypedKey(event *fyne.KeyEvent) {
 		return
 	}
 
+	oldFocus := l.currentFocus
+
 	switch event.Name {
 	case fyne.KeyDown:
 		if f := l.Length; f != nil && l.currentFocus >= f()-1 {
@@ -349,6 +357,10 @@ func (l *List) TypedKey(event *fyne.KeyEvent) {
 		l.currentFocus--
 		l.scrollTo(l.currentFocus)
 		l.RefreshItem(l.currentFocus)
+	}
+
+	if l.config != nil && l.config.SelectOnScroll && l.currentFocus != oldFocus {
+		l.Select(l.currentFocus)
 	}
 }
 

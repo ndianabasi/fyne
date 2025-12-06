@@ -826,3 +826,73 @@ func TestList_NewListWithData_NoConfig(t *testing.T) {
 	list.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
 	assert.Len(t, list.selected, 1, "ListWithData: KeySpace should select item")
 }
+
+func TestList_TypedKey_SelectOnScroll(t *testing.T) {
+	test.NewTempApp(t)
+	listLength := 10
+
+	// Case 1: SelectOnScroll is FALSE (Default or explicitly set)
+	listNoSelect := NewList(
+		func() int { return listLength },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		&ListConfig{SelectOnScroll: false},
+	)
+	windowNoSelect := test.NewWindow(listNoSelect)
+	windowNoSelect.Resize(listNoSelect.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasNoSelect := windowNoSelect.Canvas().(test.WindowlessCanvas)
+
+	canvasNoSelect.FocusNext()
+
+	// Initial state
+	assert.Equal(t, 0, listNoSelect.currentFocus, "List 1: Initial focus should be 0")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: No selection initially")
+
+	// Press Down Key
+	listNoSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listNoSelect.currentFocus, "List 1: Down key should move focus to 1")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: SelectOnScroll=false, selection count must remain 0")
+
+	// Press Up Key
+	listNoSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyUp})
+	assert.Equal(t, 0, listNoSelect.currentFocus, "List 1: Up key should move focus to 0")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: SelectOnScroll=false, selection count must remain 0")
+
+	windowNoSelect.Close()
+
+	// Case 2: SelectOnScroll is TRUE
+	listSelect := NewList(
+		func() int { return listLength },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		&ListConfig{SelectOnScroll: true}, // Explicitly enable SelectOnScroll
+	)
+	windowSelect := test.NewWindow(listSelect)
+	defer windowSelect.Close()
+	windowSelect.Resize(listSelect.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasSelect := windowSelect.Canvas().(test.WindowlessCanvas)
+
+	canvasSelect.FocusNext()
+
+	// Initial state
+	assert.Equal(t, 0, listSelect.currentFocus, "List 2: Initial focus should be 0")
+	assert.Len(t, listSelect.selected, 0, "List 2: No selection initially")
+
+	// Press Down Key
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listSelect.currentFocus, "List 2: Down key should move focus to 1")
+	assert.Len(t, listSelect.selected, 1, "List 2: SelectOnScroll=true, item 1 should be selected")
+	assert.Equal(t, 1, listSelect.selected[0])
+
+	// Press Down Key again (move focus to 2, unselect 1, select 2)
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 2, listSelect.currentFocus, "List 2: Down key should move focus to 2")
+	assert.Len(t, listSelect.selected, 1, "List 2: Selection count must remain 1")
+	assert.Equal(t, 2, listSelect.selected[0])
+
+	// Press Up Key (move focus to 1, unselect 2, select 1)
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyUp})
+	assert.Equal(t, 1, listSelect.currentFocus, "List 2: Up key should move focus to 1")
+	assert.Len(t, listSelect.selected, 1, "List 2: Selection count must remain 1")
+	assert.Equal(t, 1, listSelect.selected[0])
+}
