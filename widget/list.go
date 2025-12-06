@@ -236,6 +236,18 @@ func (l *List) Resize(s fyne.Size) {
 	l.scroller.Content.(*fyne.Container).Layout.(*listLayout).updateList(true)
 }
 
+// Focus on a list and return TRUE if focus is supported
+func (l *List) Focus() bool {
+	if !fyne.CurrentDevice().IsMobile() {
+		canvas := fyne.CurrentApp().Driver().CanvasForObject(l)
+		if canvas != nil {
+			canvas.Focus(l.impl.(fyne.Focusable))
+		}
+		return true
+	}
+	return false
+}
+
 // Select add the item identified by the given ID to the selection.
 func (l *List) Select(id ListItemID) {
 	if len(l.selected) > 0 && id == l.selected[0] {
@@ -338,7 +350,7 @@ func (l *List) TypedKey(event *fyne.KeyEvent) {
 		return
 	}
 
-	oldFocus := l.currentFocus
+	moved := false
 
 	switch event.Name {
 	case fyne.KeyDown:
@@ -349,6 +361,7 @@ func (l *List) TypedKey(event *fyne.KeyEvent) {
 		l.currentFocus++
 		l.scrollTo(l.currentFocus)
 		l.RefreshItem(l.currentFocus)
+		moved = true
 	case fyne.KeyUp:
 		if l.currentFocus <= 0 {
 			return
@@ -357,10 +370,26 @@ func (l *List) TypedKey(event *fyne.KeyEvent) {
 		l.currentFocus--
 		l.scrollTo(l.currentFocus)
 		l.RefreshItem(l.currentFocus)
+		moved = true
 	}
 
-	if l.config != nil && l.config.SelectOnScroll && l.currentFocus != oldFocus {
-		l.Select(l.currentFocus)
+	if moved && l.config != nil && l.config.SelectOnScroll {
+		if len(l.selected) > 0 && l.selected[0] != l.currentFocus {
+			oldID := l.selected[0]
+
+			// Notify and refresh the old and new item explicitly
+			l.Select(l.currentFocus)
+			l.Unselect(oldID)
+
+			// Deselect old item's visuals
+			l.RefreshItem(oldID)
+		} else if len(l.selected) == 0 {
+			// If nothing was selected, select the new focus
+			l.Select(l.currentFocus)
+		}
+
+		// Ensure focus on the list
+		l.Focus()
 	}
 }
 
@@ -713,12 +742,7 @@ func (l *listLayout) setupListItem(li *listItem, id ListItemID, focus bool) {
 		f(id, li.child)
 	}
 	li.onTapped = func() {
-		if !fyne.CurrentDevice().IsMobile() {
-			canvas := fyne.CurrentApp().Driver().CanvasForObject(l.list)
-			if canvas != nil {
-				canvas.Focus(l.list.impl.(fyne.Focusable))
-			}
-
+		if l.list.Focus() {
 			l.list.currentFocus = id
 		}
 
