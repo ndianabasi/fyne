@@ -83,6 +83,7 @@ func makeListTab(_ fyne.Window) fyne.CanvasObject {
 				item.(*fyne.Container).Objects[1].(*widget.Label).SetText(data[id])
 			}
 		},
+		nil,
 	)
 	list.OnSelected = func(id widget.ListItemID) {
 		label.SetText(data[id])

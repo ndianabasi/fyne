@@ -325,6 +325,7 @@ func TestWindow_HandleOutsideHoverableObject(t *testing.T) {
 		func() int { return 2 },
 		func() fyne.CanvasObject { return widget.NewEntry() },
 		func(lii widget.ListItemID, co fyne.CanvasObject) {},
+		nil,
 	)
 	l.Resize(fyne.NewSize(200, 300))
 	w.SetContent(l)

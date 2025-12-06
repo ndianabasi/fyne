@@ -47,6 +47,7 @@ func TestNewListWithData(t *testing.T) {
 		func(data binding.DataItem, item fyne.CanvasObject) {
 			item.(*Label).Bind(data.(binding.String))
 		},
+		nil,
 	)
 
 	template := NewLabel("Template Object")
@@ -80,7 +81,7 @@ func TestList_MinSize(t *testing.T) {
 					r.Resize(tt.cellSize)
 					return r
 				},
-				func(ListItemID, fyne.CanvasObject) {}).MinSize())
+				func(ListItemID, fyne.CanvasObject) {}, nil).MinSize())
 		})
 	}
 }
@@ -105,7 +106,8 @@ func TestList_Resize(t *testing.T) {
 			return NewButton("", func() {})
 		},
 		func(ListItemID, fyne.CanvasObject) {
-		})
+		},
+		nil)
 	list.Resize(list.Size())
 }
 
@@ -118,7 +120,7 @@ func TestList_SetItemHeight(t *testing.T) {
 			return r
 		},
 		func(ListItemID, fyne.CanvasObject) {
-		})
+		}, nil)
 
 	lay := test.TempWidgetRenderer(t, list).(*listRenderer).layout
 	assert.Equal(t, fyne.NewSize(32, 32), list.MinSize())
@@ -144,7 +146,7 @@ func TestList_SetItemHeight_InUpdate(t *testing.T) {
 		},
 		func(id ListItemID, o fyne.CanvasObject) {
 			list.SetItemHeight(id, 32)
-		})
+		}, nil)
 
 	done := make(chan struct{})
 	go func() {
@@ -397,6 +399,7 @@ func TestList_SmallList(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(200, 400))
@@ -449,6 +452,7 @@ func TestList_RemoveItem(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(200, 400))
@@ -482,6 +486,7 @@ func TestList_ScrollThenShrink(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(300, 300))
@@ -521,6 +526,7 @@ func TestList_ScrollThenResizeWindow(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(300, 300))
@@ -593,6 +599,7 @@ func createList(items int) *List {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	list.Resize(fyne.NewSize(200, 1000))
 	return list
@@ -632,6 +639,7 @@ func TestList_LimitUpdateItem(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			printOut += fmt.Sprintf("%d.", id)
 		},
+		nil,
 	)
 	w.SetContent(list)
 	w.ShowAndRun()
@@ -657,6 +665,7 @@ func TestList_RefreshUpdatesAllItems(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			printOut += fmt.Sprintf("%d.", id)
 		},
+		nil,
 	)
 	w.SetContent(list)
 	w.ShowAndRun()
@@ -676,6 +685,7 @@ func TestList_ScrollToLargeItem(t *testing.T) {
 		},
 		func(id ListItemID, item fyne.CanvasObject) {
 		},
+		nil,
 	)
 	list.SetItemHeight(9, 50)
 	w := test.NewTempWindow(t, list)
@@ -698,6 +708,7 @@ func BenchmarkContentMinSize(b *testing.B) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(fmt.Sprintf("%d", id))
 		},
+		nil,
 	)
 	l.SetItemHeight(10, 55)
 	l.SetItemHeight(12345, 2)
@@ -709,4 +720,179 @@ func BenchmarkContentMinSize(b *testing.B) {
 	}
 
 	minSize = min
+}
+
+func TestList_TypedKey_ExtraSelectionKeys(t *testing.T) {
+	test.NewTempApp(t)
+
+	// Case 1: No config (default behaviour)
+	listDefault := createList(10)
+	windowDefault := test.NewWindow(listDefault)
+	windowDefault.Resize(listDefault.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasDefault := windowDefault.Canvas().(test.WindowlessCanvas)
+
+	canvasDefault.FocusNext() // Focuses on the list
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listDefault.currentFocus, "List 1: Should move focus to item 1")
+	assert.Len(t, listDefault.selected, 0, "List 1: No selection yet")
+
+	// KeySpace should select
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, listDefault.selected, 1, "List 1: KeySpace should select item")
+	assert.Equal(t, 1, listDefault.selected[0])
+
+	// KeyReturn should not select
+	listDefault.UnselectAll()
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, listDefault.selected, 0, "List 1: KeyReturn should not select without config")
+
+	windowDefault.Close()
+
+	// Case 2: Config with extra keys
+	config := &ListConfig{
+		ExtraSelectionKeys: []fyne.KeyName{fyne.KeyReturn, fyne.KeyEnter},
+	}
+	listConfig := NewList(
+		func() int { return 10 },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		config, // Pass in the config
+	)
+	windowConfig := test.NewWindow(listConfig)
+	defer windowConfig.Close()
+	windowConfig.Resize(listConfig.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasConfig := windowConfig.Canvas().(test.WindowlessCanvas)
+
+	canvasConfig.FocusNext() // Focuses on the list
+
+	// Initial focus at 0
+	assert.Equal(t, 0, listConfig.currentFocus, "List 2: Initial focus at 0")
+
+	// KeyReturn (extra key) should select
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeyReturn should select item")
+	assert.Equal(t, 0, listConfig.selected[0])
+
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+
+	// KeyEnter (another extra key) should select
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEnter})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeyEnter should select item")
+	assert.Equal(t, 1, listConfig.selected[0])
+
+	// KeySpace (default key) should still select
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeySpace should still select item")
+	assert.Equal(t, 2, listConfig.selected[0])
+
+	// KeyA (unspecified key) should not select
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyA})
+	assert.Len(t, listConfig.selected, 0, "List 2: KeyA should not select item")
+	assert.Equal(t, 3, listConfig.currentFocus, "List 2: KeyA should not interfere with currentFocus")
+}
+
+func TestList_NewListWithData_NoConfig(t *testing.T) {
+	// Ensure NewListWithData, which passes a nil config, works correctly
+	data := binding.NewStringList()
+	data.Append("Item 0")
+	data.Append("Item 1")
+
+	list := NewListWithData(data,
+		func() fyne.CanvasObject { return NewLabel("") },
+		func(data binding.DataItem, item fyne.CanvasObject) {
+			item.(*Label).Bind(data.(binding.String))
+		},
+		nil, // config is nil
+	)
+
+	window := test.NewWindow(list)
+	defer window.Close()
+	window.Resize(list.MinSize().Max(fyne.NewSize(150, 200)))
+	canvas := window.Canvas().(test.WindowlessCanvas)
+	canvas.FocusNext()
+
+	assert.Equal(t, 0, list.currentFocus)
+
+	// KeyReturn should not select (testing the nil config path)
+	list.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, list.selected, 0, "ListWithData: KeyReturn should not select without config")
+
+	// KeySpace should select
+	list.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, list.selected, 1, "ListWithData: KeySpace should select item")
+}
+
+func TestList_TypedKey_SelectOnScroll(t *testing.T) {
+	test.NewTempApp(t)
+	listLength := 10
+
+	// Case 1: SelectOnScroll is FALSE (Default or explicitly set)
+	listNoSelect := NewList(
+		func() int { return listLength },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		&ListConfig{SelectOnScroll: false},
+	)
+	windowNoSelect := test.NewWindow(listNoSelect)
+	windowNoSelect.Resize(listNoSelect.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasNoSelect := windowNoSelect.Canvas().(test.WindowlessCanvas)
+
+	canvasNoSelect.FocusNext()
+
+	// Initial state
+	assert.Equal(t, 0, listNoSelect.currentFocus, "List 1: Initial focus should be 0")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: No selection initially")
+
+	// Press Down Key
+	listNoSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listNoSelect.currentFocus, "List 1: Down key should move focus to 1")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: SelectOnScroll=false, selection count must remain 0")
+
+	// Press Up Key
+	listNoSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyUp})
+	assert.Equal(t, 0, listNoSelect.currentFocus, "List 1: Up key should move focus to 0")
+	assert.Len(t, listNoSelect.selected, 0, "List 1: SelectOnScroll=false, selection count must remain 0")
+
+	windowNoSelect.Close()
+
+	// Case 2: SelectOnScroll is TRUE
+	listSelect := NewList(
+		func() int { return listLength },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		&ListConfig{SelectOnScroll: true}, // Explicitly enable SelectOnScroll
+	)
+	windowSelect := test.NewWindow(listSelect)
+	defer windowSelect.Close()
+	windowSelect.Resize(listSelect.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasSelect := windowSelect.Canvas().(test.WindowlessCanvas)
+
+	canvasSelect.FocusNext()
+
+	// Initial state
+	assert.Equal(t, 0, listSelect.currentFocus, "List 2: Initial focus should be 0")
+	assert.Len(t, listSelect.selected, 0, "List 2: No selection initially")
+
+	// Press Down Key
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listSelect.currentFocus, "List 2: Down key should move focus to 1")
+	assert.Len(t, listSelect.selected, 1, "List 2: SelectOnScroll=true, item 1 should be selected")
+	assert.Equal(t, 1, listSelect.selected[0])
+
+	// Press Down Key again (move focus to 2, unselect 1, select 2)
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 2, listSelect.currentFocus, "List 2: Down key should move focus to 2")
+	assert.Len(t, listSelect.selected, 1, "List 2: Selection count must remain 1")
+	assert.Equal(t, 2, listSelect.selected[0])
+
+	// Press Up Key (move focus to 1, unselect 2, select 1)
+	listSelect.TypedKey(&fyne.KeyEvent{Name: fyne.KeyUp})
+	assert.Equal(t, 1, listSelect.currentFocus, "List 2: Up key should move focus to 1")
+	assert.Len(t, listSelect.selected, 1, "List 2: Selection count must remain 1")
+	assert.Equal(t, 1, listSelect.selected[0])
 }
