@@ -24,6 +24,17 @@ var (
 	_ fyne.Focusable = (*List)(nil)
 )
 
+// ListConfig allows customising the behaviour of a List.
+//
+// Since: 2.8.1
+type ListConfig struct {
+	// Since 2.8.1
+	//
+	// ExtraSelectionKeys allows defining additional keyboard keys that should
+	// be treated as list item selection keys, in addition to fyne.KeySpace.
+	ExtraSelectionKeys []fyne.KeyName
+}
+
 // List is a widget that pools list items for performance and
 // lays the items out in a vertical direction inside of a scroller.
 // By default, List requires that all items are the same size, but specific
@@ -67,14 +78,19 @@ type List struct {
 	itemHeights   map[ListItemID]float32
 	offsetY       float32
 	offsetUpdated func(fyne.Position)
+	// Allow extra configurations for the List
+	//
+	// Since 2.8.1
+	config *ListConfig // New field to store the configuration
 }
 
 // NewList creates and returns a list widget for displaying items in
 // a vertical layout with scrolling and caching for performance.
+// The optional "config" parameter (since 2.8.1) can be used to customise the List behaviour.
 //
 // Since: 1.4
-func NewList(length func() int, createItem func() fyne.CanvasObject, updateItem func(ListItemID, fyne.CanvasObject)) *List {
-	list := &List{Length: length, CreateItem: createItem, UpdateItem: updateItem}
+func NewList(length func() int, createItem func() fyne.CanvasObject, updateItem func(ListItemID, fyne.CanvasObject), config *ListConfig) *List {
+	list := &List{Length: length, CreateItem: createItem, UpdateItem: updateItem, config: config}
 	list.ExtendBaseWidget(list)
 	return list
 }
@@ -82,7 +98,7 @@ func NewList(length func() int, createItem func() fyne.CanvasObject, updateItem 
 // NewListWithData creates a new list widget that will display the contents of the provided data.
 //
 // Since: 2.0
-func NewListWithData(data binding.DataList, createItem func() fyne.CanvasObject, updateItem func(binding.DataItem, fyne.CanvasObject)) *List {
+func NewListWithData(data binding.DataList, createItem func() fyne.CanvasObject, updateItem func(binding.DataItem, fyne.CanvasObject), config *ListConfig) *List {
 	l := NewList(
 		data.Length,
 		createItem,
@@ -93,7 +109,9 @@ func NewListWithData(data binding.DataList, createItem func() fyne.CanvasObject,
 				return
 			}
 			updateItem(item, o)
-		})
+		},
+		config,
+	)
 
 	data.AddListener(binding.NewDataListener(l.Refresh))
 	return l
@@ -299,9 +317,22 @@ func (l *List) GetScrollOffset() float32 {
 
 // TypedKey is called if a key event happens while this List is focused.
 func (l *List) TypedKey(event *fyne.KeyEvent) {
-	switch event.Name {
-	case fyne.KeySpace:
+	// Check for potential selection key first - outside of the switch statement
+	isSelectionKey := event.Name == fyne.KeySpace
+	if l.config != nil {
+		for _, k := range l.config.ExtraSelectionKeys {
+			if event.Name == k {
+				isSelectionKey = true
+				break
+			}
+		}
+	}
+	if isSelectionKey {
 		l.Select(l.currentFocus)
+		return
+	}
+
+	switch event.Name {
 	case fyne.KeyDown:
 		if f := l.Length; f != nil && l.currentFocus >= f()-1 {
 			return
