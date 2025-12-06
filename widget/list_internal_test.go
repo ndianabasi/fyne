@@ -47,6 +47,7 @@ func TestNewListWithData(t *testing.T) {
 		func(data binding.DataItem, item fyne.CanvasObject) {
 			item.(*Label).Bind(data.(binding.String))
 		},
+		nil,
 	)
 
 	template := NewLabel("Template Object")
@@ -80,7 +81,7 @@ func TestList_MinSize(t *testing.T) {
 					r.Resize(tt.cellSize)
 					return r
 				},
-				func(ListItemID, fyne.CanvasObject) {}).MinSize())
+				func(ListItemID, fyne.CanvasObject) {}, nil).MinSize())
 		})
 	}
 }
@@ -105,7 +106,8 @@ func TestList_Resize(t *testing.T) {
 			return NewButton("", func() {})
 		},
 		func(ListItemID, fyne.CanvasObject) {
-		})
+		},
+		nil)
 	list.Resize(list.Size())
 }
 
@@ -118,7 +120,7 @@ func TestList_SetItemHeight(t *testing.T) {
 			return r
 		},
 		func(ListItemID, fyne.CanvasObject) {
-		})
+		}, nil)
 
 	lay := test.TempWidgetRenderer(t, list).(*listRenderer).layout
 	assert.Equal(t, fyne.NewSize(32, 32), list.MinSize())
@@ -144,7 +146,7 @@ func TestList_SetItemHeight_InUpdate(t *testing.T) {
 		},
 		func(id ListItemID, o fyne.CanvasObject) {
 			list.SetItemHeight(id, 32)
-		})
+		}, nil)
 
 	done := make(chan struct{})
 	go func() {
@@ -397,6 +399,7 @@ func TestList_SmallList(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(200, 400))
@@ -449,6 +452,7 @@ func TestList_RemoveItem(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(200, 400))
@@ -482,6 +486,7 @@ func TestList_ScrollThenShrink(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(300, 300))
@@ -521,6 +526,7 @@ func TestList_ScrollThenResizeWindow(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	w := test.NewTempWindow(t, list)
 	w.Resize(fyne.NewSize(300, 300))
@@ -593,6 +599,7 @@ func createList(items int) *List {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*fyne.Container).Objects[1].(*Label).SetText(data[id])
 		},
+		nil,
 	)
 	list.Resize(fyne.NewSize(200, 1000))
 	return list
@@ -632,6 +639,7 @@ func TestList_LimitUpdateItem(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			printOut += fmt.Sprintf("%d.", id)
 		},
+		nil,
 	)
 	w.SetContent(list)
 	w.ShowAndRun()
@@ -657,6 +665,7 @@ func TestList_RefreshUpdatesAllItems(t *testing.T) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			printOut += fmt.Sprintf("%d.", id)
 		},
+		nil,
 	)
 	w.SetContent(list)
 	w.ShowAndRun()
@@ -676,6 +685,7 @@ func TestList_ScrollToLargeItem(t *testing.T) {
 		},
 		func(id ListItemID, item fyne.CanvasObject) {
 		},
+		nil,
 	)
 	list.SetItemHeight(9, 50)
 	w := test.NewTempWindow(t, list)
@@ -698,6 +708,7 @@ func BenchmarkContentMinSize(b *testing.B) {
 		func(id ListItemID, item fyne.CanvasObject) {
 			item.(*Label).SetText(fmt.Sprintf("%d", id))
 		},
+		nil,
 	)
 	l.SetItemHeight(10, 55)
 	l.SetItemHeight(12345, 2)

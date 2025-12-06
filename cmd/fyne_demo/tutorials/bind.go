@@ -62,7 +62,9 @@ func bindingScreen(_ fyne.Window) fyne.CanvasObject {
 				val, _ := f.Get()
 				_ = f.Set(val + 1)
 			}
-		})
+		},
+		nil,
+	)
 
 	formStruct := struct {
 		Name, Email string

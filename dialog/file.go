@@ -198,6 +198,7 @@ func (f *fileDialog) makeUI() fyne.CanvasObject {
 			item.(*fyne.Container).Objects[0].(*fyne.Container).Objects[0].(*widget.Icon).SetResource(f.favorites[id].locIcon)
 			item.(*fyne.Container).Objects[1].(*widget.Label).SetText(f.favorites[id].locName)
 		},
+		nil,
 	)
 	f.favoritesList.OnSelected = func(id widget.ListItemID) {
 		f.setLocation(f.favorites[id].loc)
@@ -590,7 +591,7 @@ func (f *fileDialog) setView(view ViewLayout) {
 		f.toggleViewButton.SetIcon(theme.ListIcon())
 		selectF = grid.Select
 	} else {
-		list := widget.NewList(count, template, update)
+		list := widget.NewList(count, template, update, nil)
 		list.OnSelected = choose
 		f.files = list
 		f.toggleViewButton.SetIcon(theme.GridIcon())
