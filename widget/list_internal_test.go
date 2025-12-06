@@ -721,3 +721,108 @@ func BenchmarkContentMinSize(b *testing.B) {
 
 	minSize = min
 }
+
+func TestList_TypedKey_ExtraSelectionKeys(t *testing.T) {
+	test.NewTempApp(t)
+
+	// Case 1: No config (default behaviour)
+	listDefault := createList(10)
+	windowDefault := test.NewWindow(listDefault)
+	windowDefault.Resize(listDefault.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasDefault := windowDefault.Canvas().(test.WindowlessCanvas)
+
+	canvasDefault.FocusNext() // Focuses on the list
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	assert.Equal(t, 1, listDefault.currentFocus, "List 1: Should move focus to item 1")
+	assert.Len(t, listDefault.selected, 0, "List 1: No selection yet")
+
+	// KeySpace should select
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, listDefault.selected, 1, "List 1: KeySpace should select item")
+	assert.Equal(t, 1, listDefault.selected[0])
+
+	// KeyReturn should not select
+	listDefault.UnselectAll()
+	listDefault.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, listDefault.selected, 0, "List 1: KeyReturn should not select without config")
+
+	windowDefault.Close()
+
+	// Case 2: Config with extra keys
+	config := &ListConfig{
+		ExtraSelectionKeys: []fyne.KeyName{fyne.KeyReturn, fyne.KeyEnter},
+	}
+	listConfig := NewList(
+		func() int { return 10 },
+		func() fyne.CanvasObject { return NewLabel("Row") },
+		func(id ListItemID, item fyne.CanvasObject) {},
+		config, // Pass in the config
+	)
+	windowConfig := test.NewWindow(listConfig)
+	defer windowConfig.Close()
+	windowConfig.Resize(listConfig.MinSize().Max(fyne.NewSize(150, 200)))
+	canvasConfig := windowConfig.Canvas().(test.WindowlessCanvas)
+
+	canvasConfig.FocusNext() // Focuses on the list
+
+	// Initial focus at 0
+	assert.Equal(t, 0, listConfig.currentFocus, "List 2: Initial focus at 0")
+
+	// KeyReturn (extra key) should select
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeyReturn should select item")
+	assert.Equal(t, 0, listConfig.selected[0])
+
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+
+	// KeyEnter (another extra key) should select
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEnter})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeyEnter should select item")
+	assert.Equal(t, 1, listConfig.selected[0])
+
+	// KeySpace (default key) should still select
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, listConfig.selected, 1, "List 2: KeySpace should still select item")
+	assert.Equal(t, 2, listConfig.selected[0])
+
+	// KeyA (unspecified key) should not select
+	listConfig.UnselectAll()
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyDown})
+	listConfig.TypedKey(&fyne.KeyEvent{Name: fyne.KeyA})
+	assert.Len(t, listConfig.selected, 0, "List 2: KeyA should not select item")
+	assert.Equal(t, 3, listConfig.currentFocus, "List 2: KeyA should not interfere with currentFocus")
+}
+
+func TestList_NewListWithData_NoConfig(t *testing.T) {
+	// Ensure NewListWithData, which passes a nil config, works correctly
+	data := binding.NewStringList()
+	data.Append("Item 0")
+	data.Append("Item 1")
+
+	list := NewListWithData(data,
+		func() fyne.CanvasObject { return NewLabel("") },
+		func(data binding.DataItem, item fyne.CanvasObject) {
+			item.(*Label).Bind(data.(binding.String))
+		},
+		nil, // config is nil
+	)
+
+	window := test.NewWindow(list)
+	defer window.Close()
+	window.Resize(list.MinSize().Max(fyne.NewSize(150, 200)))
+	canvas := window.Canvas().(test.WindowlessCanvas)
+	canvas.FocusNext()
+
+	assert.Equal(t, 0, list.currentFocus)
+
+	// KeyReturn should not select (testing the nil config path)
+	list.TypedKey(&fyne.KeyEvent{Name: fyne.KeyReturn})
+	assert.Len(t, list.selected, 0, "ListWithData: KeyReturn should not select without config")
+
+	// KeySpace should select
+	list.TypedKey(&fyne.KeyEvent{Name: fyne.KeySpace})
+	assert.Len(t, list.selected, 1, "ListWithData: KeySpace should select item")
+}
